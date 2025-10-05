@@ -1,10 +1,10 @@
 import React from 'react';
-import { Video as LucideIcon } from 'lucide-react';
+
 
 interface StatCardProps {
   title: string;
   value: number;
-  icon: LucideIcon;
+  icon: React.ComponentType<any>;
   color: string;
   trend?: {
     value: number;
@@ -30,11 +30,8 @@ const StatCard: React.FC<StatCardProps> = ({
   };
 
   return (
-    <div 
-      className={`
-        bg-white p-6 rounded-xl border shadow-sm hover:shadow-md transition-all duration-200
-        ${onClick ? 'cursor-pointer hover:scale-105' : ''}
-      `}
+    <div
+      className={`bg-white p-6 rounded-xl border shadow-sm hover:shadow-md transition-all duration-200 ${onClick ? 'cursor-pointer hover:scale-105' : ''}`}
       onClick={onClick}
     >
       <div className="flex items-center justify-between">
@@ -42,15 +39,16 @@ const StatCard: React.FC<StatCardProps> = ({
           <p className="text-sm font-medium text-gray-600 mb-1">{title}</p>
           <p className="text-3xl font-bold text-gray-900">{value}</p>
           {trend && (
-            <p className={`text-sm mt-2 ${trend.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+            <p className={`text-sm mt-2 ${trend.isPositive ? 'text-green-600' : 'text-red-600'}`}> 
               {trend.isPositive ? '+' : ''}{trend.value}% from last month
             </p>
           )}
         </div>
-        <div className={`p-3 rounded-lg border ${colorClasses[color as keyof typeof colorClasses]}`}>
+        <div className={`p-3 rounded-lg border ${colorClasses[color as keyof typeof colorClasses]}`}> 
           <Icon className="w-8 h-8" />
         </div>
       </div>
+
     </div>
   );
 };

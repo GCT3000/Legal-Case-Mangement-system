@@ -1,0 +1,11 @@
+/* Remove Tailwind directives if not using Tailwind CSS build process */
+
+@keyframes fadeOut {
+  to {
+    opacity: 0;
+  }
+}
+
+.animate-fade-out {
+  animation: fadeOut 1s linear 2s forwards;
+}

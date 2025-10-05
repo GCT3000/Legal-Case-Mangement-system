@@ -1,32 +1,38 @@
+// Removed unused useCases import
 import React from 'react';
 import { 
   FileText, 
   Clock, 
-  CheckCircle, 
-  AlertTriangle, 
   Plus, 
   Search,
-  Calendar,
   TrendingUp
 } from 'lucide-react';
-import { useCases } from '../../context/CaseContext';
 import StatCard from './StatCard';
-
 interface DashboardProps {
   onPageChange: (page: string) => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ onPageChange }) => {
-  const { cases, getStats } = useCases();
-  const stats = getStats();
+  const [cases, setCases] = React.useState<any[]>([]);
+  React.useEffect(() => {
+    const storedCases = JSON.parse(localStorage.getItem('cases') || '[]');
+    setCases(storedCases);
+  }, []);
 
-  const recentCases = cases
-    .sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime())
+  // Compute stats from local cases
+  const stats = {
+    total: cases.length,
+    underInvestigation: cases.filter((c: any) => c.status === 'Under Investigation').length,
+    courtProceedings: cases.filter((c: any) => c.status === 'Court Proceedings').length,
+  };
+
+  const recentCases = [...cases]
+    .sort((a, b) => new Date(b.lastUpdated || b.dateCreated).getTime() - new Date(a.lastUpdated || a.dateCreated).getTime())
     .slice(0, 5);
 
   const upcomingDeadlines = cases
-    .filter(c => c.courtDate)
-    .sort((a, b) => new Date(a.courtDate!).getTime() - new Date(b.courtDate!).getTime())
+    .filter((c: any) => c.nextHearingDate)
+    .sort((a, b) => new Date(a.nextHearingDate).getTime() - new Date(b.nextHearingDate).getTime())
     .slice(0, 3);
 
   const getStatusColor = (status: string) => {
@@ -55,7 +61,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onPageChange }) => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Road Accident Cases Dashboard</h1>
-          <p className="text-gray-600 mt-1">Welcome back, Adv. Priya Sharma. Here's your accident case overview.</p>
+          <p className="text-gray-600 mt-1">Welcome back, Adv. S. Kumara Swami. Here's your accident case overview.</p>
         </div>
         <div className="flex space-x-3 mt-4 sm:mt-0">
           <button
@@ -82,7 +88,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onPageChange }) => {
           value={stats.total}
           icon={FileText}
           color="blue"
-          trend={{ value: 12, isPositive: true }}
           onClick={() => onPageChange('case-details')}
         />
         <StatCard
@@ -90,7 +95,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onPageChange }) => {
           value={stats.underInvestigation}
           icon={Clock}
           color="yellow"
-          trend={{ value: 8, isPositive: false }}
           onClick={() => onPageChange('search-cases')}
         />
         <StatCard
@@ -98,18 +102,11 @@ const Dashboard: React.FC<DashboardProps> = ({ onPageChange }) => {
           value={stats.courtProceedings}
           icon={TrendingUp}
           color="green"
-          trend={{ value: 15, isPositive: true }}
         />
-        <StatCard
-          title="Urgent Priority"
-          value={stats.urgent}
-          icon={AlertTriangle}
-          color="red"
-          onClick={() => onPageChange('search-cases')}
-        />
+
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+  <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Recent Cases */}
         <div className="xl:col-span-2">
           <div className="bg-white rounded-xl border shadow-sm">
@@ -142,11 +139,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onPageChange }) => {
                       <span className={`text-sm font-medium ${getPriorityColor(case_.priority)}`}>
                         {case_.priority}
                       </span>
-                      {case_.estimatedValue && (
-                        <span className="text-sm font-medium text-gray-900">
-                          ₹{case_.claimAmount.toLocaleString()}
-                        </span>
-                      )}
+                      <span className="text-sm font-medium text-gray-900">
+                        ₹{case_.claimAmount.toLocaleString()}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -155,13 +150,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onPageChange }) => {
           </div>
         </div>
 
-        {/* Upcoming Deadlines & Quick Actions */}
-        <div className="space-y-6">
+  {/* Upcoming Deadlines & Quick Actions */}
+  <div className="space-y-6">
           {/* Upcoming Deadlines */}
           <div className="bg-white rounded-xl border shadow-sm">
             <div className="p-6 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                <Calendar className="w-5 h-5 mr-2 text-blue-600" />
+                {/* Calendar icon removed */}
                 Upcoming Court Hearings
               </h3>
             </div>
@@ -199,20 +194,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onPageChange }) => {
                   <Plus className="w-5 h-5 text-blue-600" />
                   <span className="font-medium text-blue-700">Register New Case</span>
                 </button>
-                <button
-                  onClick={() => onPageChange('search-cases')}
-                  className="w-full flex items-center space-x-3 p-4 text-left bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  <Search className="w-5 h-5 text-gray-600" />
-                  <span className="font-medium text-gray-700">Search Cases</span>
-                </button>
-                <button
-                  onClick={() => onPageChange('reports')}
-                  className="w-full flex items-center space-x-3 p-4 text-left bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors"
-                >
-                  <TrendingUp className="w-5 h-5 text-green-600" />
-                  <span className="font-medium text-green-700">View Reports</span>
-                </button>
+                {/* Search quick action removed */}
               </div>
             </div>
           </div>

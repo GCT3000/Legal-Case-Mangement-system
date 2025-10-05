@@ -1,33 +1,81 @@
+
 import React, { useState } from 'react';
-import { Save, X, AlertCircle, CheckCircle } from 'lucide-react';
-import { useCases } from '../../context/CaseContext';
+import { useNotification } from '../../context/NotificationContext';
+import { Save, X, AlertCircle } from 'lucide-react';
+
 
 interface AddCaseProps {
   onPageChange: (page: string) => void;
 }
 
+interface DocumentFiles {
+  firCopy: File | null;
+  medicalRecords: File | null;
+  postMortemReport: File | null;
+  vehicleDocuments: File | null;
+  insurancePolicy: File | null;
+  witnessStatements: File | null;
+  inquestReport: File | null;
+  mviReport: File | null;
+  chargeSheet: File | null;
+}
+
+interface AddCaseForm {
+  clientName: string;
+  status: 'Filed';
+  accidentDate: string;
+  accidentLocation: string;
+  policeStationFIR: string;
+  firNumber: string;
+  caseNumber: string;
+  nextHearingDate: string;
+  claimAmount: string;
+  insuranceCompany: string;
+  injuryType: 'Simple' | 'Grievous' | 'Fatal' | 'Property Damage Only';
+  medicalExpenses: string;
+  notes: string;
+  vehicles: string[];
+  advocate: string;
+  referredBy: string;
+  documentStatus: {
+    firCopy: boolean;
+    medicalRecords: boolean;
+    postMortemReport: boolean;
+    vehicleDocuments: boolean;
+    insurancePolicy: boolean;
+    witnessStatements: boolean;
+  };
+  inquestReport: boolean;
+  mviReport: boolean;
+  chargeSheet: boolean;
+  documentFiles: DocumentFiles;
+  priority: 'Low' | 'Medium' | 'High';
+}
+
 const AddCase: React.FC<AddCaseProps> = ({ onPageChange }) => {
-  const { addCase } = useCases();
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [formData, setFormData] = useState({
+  const { addNotification } = useNotification();
+  // Removed unused addCase
+  // Simple notification state
+  const [notification, setNotification] = useState<string | null>(null);
+  // const { addCase } = useCases(); // Not used with direct Firestore add
+  const [formData, setFormData] = useState<AddCaseForm>({
     clientName: '',
     status: 'Filed' as const,
-    priority: 'Medium' as const,
     accidentDate: '',
     accidentLocation: '',
     policeStationFIR: '',
     firNumber: '',
-    courtName: '',
     caseNumber: '',
     nextHearingDate: '',
     claimAmount: '',
     insuranceCompany: '',
-    vehicleNumber: '',
-    oppositeParty: '',
-    injuryType: 'Simple' as const,
+    injuryType: 'Simple',
     medicalExpenses: '',
     notes: '',
-    assignedAdvocate: '',
+    vehicles: [''],
+    advocate: '',
+    referredBy: '',
+    priority: 'Medium',
     documentStatus: {
       firCopy: false,
       medicalRecords: false,
@@ -35,8 +83,35 @@ const AddCase: React.FC<AddCaseProps> = ({ onPageChange }) => {
       vehicleDocuments: false,
       insurancePolicy: false,
       witnessStatements: false
+    },
+    inquestReport: false,
+    mviReport: false,
+    chargeSheet: false,
+    documentFiles: {
+      firCopy: null,
+      medicalRecords: null,
+      postMortemReport: null,
+      vehicleDocuments: null,
+      insurancePolicy: null,
+      witnessStatements: null,
+      inquestReport: null,
+      mviReport: null,
+      chargeSheet: null
     }
   });
+
+
+  // Handle file upload for document types
+  const handleFileChange = (docType: string, file: File | null) => {
+    setFormData(prev => ({
+      ...prev,
+      documentFiles: {
+        ...prev.documentFiles,
+        [docType]: file
+      }
+    }));
+  };
+
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -63,16 +138,8 @@ const AddCase: React.FC<AddCaseProps> = ({ onPageChange }) => {
       newErrors.firNumber = 'FIR number is required';
     }
 
-    if (!formData.vehicleNumber.trim()) {
-      newErrors.vehicleNumber = 'Vehicle number is required';
-    }
-
-    if (!formData.oppositeParty.trim()) {
-      newErrors.oppositeParty = 'Opposite party details are required';
-    }
-
-    if (!formData.assignedAdvocate.trim()) {
-      newErrors.assignedAdvocate = 'Assigned advocate is required';
+    if (!formData.vehicles.some((v) => v.trim())) {
+      newErrors.vehicles = 'At least one vehicle number is required';
     }
 
     if (!formData.claimAmount || isNaN(Number(formData.claimAmount))) {
@@ -87,74 +154,97 @@ const AddCase: React.FC<AddCaseProps> = ({ onPageChange }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!validateForm()) {
+      setNotification('Please fill all required fields.');
+      setTimeout(() => setNotification(null), 2500);
       return;
     }
-
-    const caseData = {
-      clientName: formData.clientName.trim(),
-      status: formData.status,
-      priority: formData.priority,
-      accidentDate: formData.accidentDate,
-      accidentLocation: formData.accidentLocation.trim(),
-      policeStationFIR: formData.policeStationFIR.trim(),
-      firNumber: formData.firNumber.trim(),
-      courtName: formData.courtName.trim(),
-      caseNumber: formData.caseNumber.trim() || undefined,
-      nextHearingDate: formData.nextHearingDate || undefined,
-      claimAmount: Number(formData.claimAmount),
-      insuranceCompany: formData.insuranceCompany.trim() || undefined,
-      vehicleNumber: formData.vehicleNumber.trim(),
-      oppositeParty: formData.oppositeParty.trim(),
-      injuryType: formData.injuryType,
-      medicalExpenses: formData.medicalExpenses ? Number(formData.medicalExpenses) : undefined,
-      notes: formData.notes.trim(),
-      assignedAdvocate: formData.assignedAdvocate.trim(),
-      documentStatus: formData.documentStatus
-    };
-
-    addCase(caseData);
-    setShowSuccess(true);
-    
-    // Reset form
-    setFormData({
-      clientName: '',
-      status: 'Filed',
-      priority: 'Medium',
-      accidentDate: '',
-      accidentLocation: '',
-      policeStationFIR: '',
-      firNumber: '',
-      courtName: '',
-      caseNumber: '',
-      nextHearingDate: '',
-      claimAmount: '',
-      insuranceCompany: '',
-      vehicleNumber: '',
-      oppositeParty: '',
-      injuryType: 'Simple',
-      medicalExpenses: '',
-      notes: '',
-      assignedAdvocate: '',
-      documentStatus: {
-        firCopy: false,
-        medicalRecords: false,
-        postMortemReport: false,
-        vehicleDocuments: false,
-        insurancePolicy: false,
-        witnessStatements: false
+    try {
+      // Convert documentFiles to plain object with only non-null files
+      const files: { [key: string]: File } = {};
+      Object.entries(formData.documentFiles).forEach(([key, file]) => {
+        if (file) files[key] = file;
+      });
+      // Save case to localStorage
+      const caseToAdd = {
+        ...formData,
+        id: Date.now().toString(),
+        priority: formData.priority as 'Low' | 'Medium' | 'High',
+        documentFiles: Object.fromEntries(Object.entries(formData.documentFiles).map(([k, v]) => [k, v ? v.name : null]))
+      };
+      const cases = JSON.parse(localStorage.getItem('cases') || '[]');
+      cases.push(caseToAdd);
+      localStorage.setItem('cases', JSON.stringify(cases));
+      // Add notification for new case
+      addNotification({
+        message: `New case registered for ${formData.clientName}.`,
+        type: 'success',
+      });
+      // If next hearing date is set, notify
+      if (formData.nextHearingDate) {
+        addNotification({
+          message: `Next court hearing for ${formData.clientName} is on ${formData.nextHearingDate}.`,
+          type: 'info',
+        });
       }
-    });
-    setErrors({});
+      setFormData({
+        clientName: '',
+        status: 'Filed',
+        accidentDate: '',
+        accidentLocation: '',
+        policeStationFIR: '',
+        firNumber: '',
+        caseNumber: '',
+        nextHearingDate: '',
+        claimAmount: '',
+        insuranceCompany: '',
+        injuryType: 'Simple',
+        medicalExpenses: '',
+        notes: '',
+        vehicles: [''],
+        advocate: '',
+        referredBy: '',
+        priority: 'Medium',
+        documentStatus: {
+          firCopy: false,
+          medicalRecords: false,
+          postMortemReport: false,
+          vehicleDocuments: false,
+          insurancePolicy: false,
+          witnessStatements: false
+        },
+        inquestReport: false,
+        mviReport: false,
+        chargeSheet: false,
+        documentFiles: {
+          firCopy: null,
+          medicalRecords: null,
+          postMortemReport: null,
+          vehicleDocuments: null,
+          insurancePolicy: null,
+          witnessStatements: null,
+          inquestReport: null,
+          mviReport: null,
+          chargeSheet: null
+        }
+      });
+      setErrors({});
+      setNotification('Case Registered Successfully!');
+      setTimeout(() => setNotification(null), 2500);
+    } catch (err) {
+      setNotification('Error: Case could not be registered.');
+      setTimeout(() => setNotification(null), 2500);
+    }
 
-    // Hide success message after 3 seconds
-    setTimeout(() => setShowSuccess(false), 3000);
+
+    setErrors({});
   };
 
-  const handleInputChange = (field: string, value: string | boolean) => {
+
+  const handleInputChange = (field: string, value: any) => {
     if (field.startsWith('documentStatus.')) {
       const docField = field.split('.')[1];
       setFormData(prev => ({
@@ -164,36 +254,55 @@ const AddCase: React.FC<AddCaseProps> = ({ onPageChange }) => {
           [docField]: value
         }
       }));
+    } else if (field.startsWith('vehicles.')) {
+      const idx = Number(field.split('.')[1]);
+      setFormData(prev => {
+        const vehicles = [...prev.vehicles];
+        vehicles[idx] = value;
+        return { ...prev, vehicles };
+      });
     } else {
       setFormData(prev => ({ ...prev, [field]: value }));
     }
-    
-    // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
   };
 
+  const handleAddVehicle = () => {
+    setFormData(prev => ({
+      ...prev,
+      vehicles: [...prev.vehicles, '']
+    }));
+  };
+
+  const handleRemoveVehicle = (idx: number) => {
+    setFormData(prev => ({
+      ...prev,
+      vehicles: prev.vehicles.filter((_, i) => i !== idx)
+    }));
+  };
+
+
   const handleCancel = () => {
     setFormData({
       clientName: '',
       status: 'Filed',
-      priority: 'Medium',
       accidentDate: '',
       accidentLocation: '',
       policeStationFIR: '',
       firNumber: '',
-      courtName: '',
       caseNumber: '',
       nextHearingDate: '',
       claimAmount: '',
       insuranceCompany: '',
-      vehicleNumber: '',
-      oppositeParty: '',
       injuryType: 'Simple',
       medicalExpenses: '',
       notes: '',
-      assignedAdvocate: '',
+      vehicles: [''],
+      advocate: '',
+      referredBy: '',
+      priority: 'Medium',
       documentStatus: {
         firCopy: false,
         medicalRecords: false,
@@ -201,6 +310,20 @@ const AddCase: React.FC<AddCaseProps> = ({ onPageChange }) => {
         vehicleDocuments: false,
         insurancePolicy: false,
         witnessStatements: false
+      },
+      inquestReport: false,
+      mviReport: false,
+      chargeSheet: false,
+      documentFiles: {
+        firCopy: null,
+        medicalRecords: null,
+        postMortemReport: null,
+        vehicleDocuments: null,
+        insurancePolicy: null,
+        witnessStatements: null,
+        inquestReport: null,
+        mviReport: null,
+        chargeSheet: null
       }
     });
     setErrors({});
@@ -209,14 +332,10 @@ const AddCase: React.FC<AddCaseProps> = ({ onPageChange }) => {
 
   return (
     <div className="max-w-6xl mx-auto">
-      {/* Success Message */}
-      {showSuccess && (
-        <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4 flex items-center space-x-3">
-          <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
-          <div>
-            <p className="text-green-800 font-medium">Road Accident Case Registered Successfully!</p>
-            <p className="text-green-700 text-sm">The new accident case has been added to your case management system.</p>
-          </div>
+      {/* Simple Notification Bar */}
+      {notification && (
+        <div className="fixed top-0 left-0 w-full z-50 bg-blue-600 text-white px-0 py-4 shadow-lg flex items-center justify-center" style={{borderRadius:0}}>
+          <span className="font-semibold text-xl tracking-wide">{notification}</span>
         </div>
       )}
 
@@ -237,6 +356,32 @@ const AddCase: React.FC<AddCaseProps> = ({ onPageChange }) => {
           <div className="p-6 space-y-6">
             {/* Client Name & Accident Date */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label htmlFor="advocate" className="block text-sm font-medium text-gray-700 mb-2">
+                Advocate
+              </label>
+              <input
+                type="text"
+                id="advocate"
+                value={formData.advocate}
+                onChange={e => handleInputChange('advocate', e.target.value)}
+                className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors border-gray-300"
+                placeholder="Advocate name"
+              />
+            </div>
+            <div>
+              <label htmlFor="referredBy" className="block text-sm font-medium text-gray-700 mb-2">
+                Referred By
+              </label>
+              <input
+                type="text"
+                id="referredBy"
+                value={formData.referredBy}
+                onChange={e => handleInputChange('referredBy', e.target.value)}
+                className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors border-gray-300"
+                placeholder="Name of person who referred"
+              />
+            </div>
               <div>
                 <label htmlFor="clientName" className="block text-sm font-medium text-gray-700 mb-2">
                   Client Name *
@@ -305,88 +450,64 @@ const AddCase: React.FC<AddCaseProps> = ({ onPageChange }) => {
               )}
             </div>
 
-            {/* Vehicle Number & Opposite Party */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label htmlFor="vehicleNumber" className="block text-sm font-medium text-gray-700 mb-2">
-                  Vehicle Number *
-                </label>
-                <input
-                  type="text"
-                  id="vehicleNumber"
-                  value={formData.vehicleNumber}
-                  onChange={(e) => handleInputChange('vehicleNumber', e.target.value.toUpperCase())}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                    errors.vehicleNumber ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                  }`}
-                  placeholder="e.g., DL-8C-1234"
-                />
-                {errors.vehicleNumber && (
-                  <div className="mt-2 flex items-center space-x-2 text-red-600">
-                    <AlertCircle className="w-4 h-4" />
-                    <span className="text-sm">{errors.vehicleNumber}</span>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label htmlFor="oppositeParty" className="block text-sm font-medium text-gray-700 mb-2">
-                  Opposite Party *
-                </label>
-                <input
-                  type="text"
-                  id="oppositeParty"
-                  value={formData.oppositeParty}
-                  onChange={(e) => handleInputChange('oppositeParty', e.target.value)}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                    errors.oppositeParty ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                  }`}
-                  placeholder="Name of opposite party or 'Unknown' for hit & run"
-                />
-                {errors.oppositeParty && (
-                  <div className="mt-2 flex items-center space-x-2 text-red-600">
-                    <AlertCircle className="w-4 h-4" />
-                    <span className="text-sm">{errors.oppositeParty}</span>
-                  </div>
-                )}
-              </div>
+            {/* Vehicles */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Vehicle(s) *
+              </label>
+              {formData.vehicles.map((vehicle, idx) => (
+                <div key={idx} className="flex items-center mb-2 gap-2">
+                  <input
+                    type="text"
+                    value={vehicle}
+                    onChange={e => handleInputChange(`vehicles.${idx}`, e.target.value.toUpperCase())}
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+                      errors.vehicles && idx === 0 ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                    }`}
+                    placeholder="e.g., DL-8C-1234"
+                  />
+                  {formData.vehicles.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveVehicle(idx)}
+                      className="px-2 py-1 text-xs text-red-600 border border-red-200 rounded hover:bg-red-50"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={handleAddVehicle}
+                className="mt-2 px-4 py-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
+              >
+                + Add Vehicle
+              </button>
+              {errors.vehicles && (
+                <div className="mt-2 flex items-center space-x-2 text-red-600">
+                  <AlertCircle className="w-4 h-4" />
+                  <span className="text-sm">{errors.vehicles}</span>
+                </div>
+              )}
             </div>
 
-            {/* Injury Type & Priority */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label htmlFor="injuryType" className="block text-sm font-medium text-gray-700 mb-2">
-                  Injury Type
-                </label>
-                <select
-                  id="injuryType"
-                  value={formData.injuryType}
-                  onChange={(e) => handleInputChange('injuryType', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                >
-                  <option value="Simple">Simple Injury</option>
-                  <option value="Grievous">Grievous Injury</option>
-                  <option value="Fatal">Fatal Accident</option>
-                  <option value="Property Damage Only">Property Damage Only</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-2">
-                  Case Priority
-                </label>
-                <select
-                  id="priority"
-                  value={formData.priority}
-                  onChange={(e) => handleInputChange('priority', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                >
-                  <option value="Low">Low Priority</option>
-                  <option value="Medium">Medium Priority</option>
-                  <option value="High">High Priority</option>
-                  <option value="Urgent">Urgent</option>
-                </select>
-              </div>
+            {/* Injury Type */}
+            <div>
+              <label htmlFor="injuryType" className="block text-sm font-medium text-gray-700 mb-2">
+                Injury Type
+              </label>
+              <select
+                id="injuryType"
+                value={formData.injuryType}
+                onChange={(e) => handleInputChange('injuryType', e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              >
+                <option value="Simple">Simple Injury</option>
+                <option value="Grievous">Grievous Injury</option>
+                <option value="Fatal">Fatal Accident</option>
+                <option value="Property Damage Only">Property Damage Only</option>
+              </select>
             </div>
           </div>
         </div>
@@ -445,48 +566,19 @@ const AddCase: React.FC<AddCaseProps> = ({ onPageChange }) => {
               </div>
             </div>
 
-            {/* Court Name & Case Number */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label htmlFor="courtName" className="block text-sm font-medium text-gray-700 mb-2">
-                  Court Name
-                </label>
-                <select
-                  id="courtName"
-                  value={formData.courtName}
-                  onChange={(e) => handleInputChange('courtName', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                >
-                  <option value="">Select Court</option>
-                  <option value="Delhi High Court">Delhi High Court</option>
-                  <option value="Bombay High Court">Bombay High Court</option>
-                  <option value="Madras High Court">Madras High Court</option>
-                  <option value="Calcutta High Court">Calcutta High Court</option>
-                  <option value="Punjab & Haryana High Court, Chandigarh">Punjab & Haryana High Court, Chandigarh</option>
-                  <option value="Rajasthan High Court, Jaipur">Rajasthan High Court, Jaipur</option>
-                  <option value="Gujarat High Court">Gujarat High Court</option>
-                  <option value="Karnataka High Court">Karnataka High Court</option>
-                  <option value="Kerala High Court">Kerala High Court</option>
-                  <option value="Andhra Pradesh High Court">Andhra Pradesh High Court</option>
-                  <option value="Telangana High Court">Telangana High Court</option>
-                  <option value="Madhya Pradesh High Court">Madhya Pradesh High Court</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="caseNumber" className="block text-sm font-medium text-gray-700 mb-2">
-                  Case Number (if filed)
-                </label>
-                <input
-                  type="text"
-                  id="caseNumber"
-                  value={formData.caseNumber}
-                  onChange={(e) => handleInputChange('caseNumber', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                  placeholder="e.g., CWP No. 12345/2024"
-                />
-              </div>
+            {/* Case Number (if filed) */}
+            <div>
+              <label htmlFor="caseNumber" className="block text-sm font-medium text-gray-700 mb-2">
+                Case Number (if filed)
+              </label>
+              <input
+                type="text"
+                id="caseNumber"
+                value={formData.caseNumber}
+                onChange={(e) => handleInputChange('caseNumber', e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                placeholder="e.g., CWP No. 12345/2024"
+              />
             </div>
 
             {/* Status & Next Hearing Date */}
@@ -527,34 +619,7 @@ const AddCase: React.FC<AddCaseProps> = ({ onPageChange }) => {
               </div>
             </div>
 
-            {/* Assigned Advocate */}
-            <div>
-              <label htmlFor="assignedAdvocate" className="block text-sm font-medium text-gray-700 mb-2">
-                Assigned Advocate *
-              </label>
-              <select
-                id="assignedAdvocate"
-                value={formData.assignedAdvocate}
-                onChange={(e) => handleInputChange('assignedAdvocate', e.target.value)}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                  errors.assignedAdvocate ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                }`}
-              >
-                <option value="">Select Advocate</option>
-                <option value="Adv. Priya Sharma">Adv. Priya Sharma</option>
-                <option value="Adv. Vikram Singh">Adv. Vikram Singh</option>
-                <option value="Adv. Anjali Mehta">Adv. Anjali Mehta</option>
-                <option value="Adv. Rohit Gupta">Adv. Rohit Gupta</option>
-                <option value="Adv. Kavita Desai">Adv. Kavita Desai</option>
-                <option value="Adv. Arjun Reddy">Adv. Arjun Reddy</option>
-              </select>
-              {errors.assignedAdvocate && (
-                <div className="mt-2 flex items-center space-x-2 text-red-600">
-                  <AlertCircle className="w-4 h-4" />
-                  <span className="text-sm">{errors.assignedAdvocate}</span>
-                </div>
-              )}
-            </div>
+            {/* Removed Assigned Advocate field */}
           </div>
         </div>
 
@@ -655,26 +720,45 @@ const AddCase: React.FC<AddCaseProps> = ({ onPageChange }) => {
             <h2 className="text-xl font-semibold text-gray-900">Document Status</h2>
             <p className="text-sm text-gray-600 mt-1">Check the documents that have been collected</p>
           </div>
-          
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Object.entries({
-                firCopy: 'FIR Copy',
-                medicalRecords: 'Medical Records',
-                postMortemReport: 'Post Mortem Report',
-                vehicleDocuments: 'Vehicle Documents',
-                insurancePolicy: 'Insurance Policy',
-                witnessStatements: 'Witness Statements'
-              }).map(([key, label]) => (
-                <label key={key} className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.documentStatus[key as keyof typeof formData.documentStatus]}
-                    onChange={(e) => handleInputChange(`documentStatus.${key}`, e.target.checked)}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-medium text-gray-700">{label}</span>
-                </label>
+              {[ // All document types
+                { key: 'firCopy', label: 'FIR Copy', isStatus: true },
+                { key: 'medicalRecords', label: 'Medical Records', isStatus: true },
+                { key: 'postMortemReport', label: 'Post Mortem Report', isStatus: true },
+                { key: 'vehicleDocuments', label: 'Vehicle Documents', isStatus: true },
+                { key: 'insurancePolicy', label: 'Insurance Policy', isStatus: true },
+                { key: 'witnessStatements', label: 'Witness Statements', isStatus: true },
+                { key: 'inquestReport', label: 'Inquest Report', isStatus: false },
+                { key: 'mviReport', label: 'MVI Report', isStatus: false },
+                { key: 'chargeSheet', label: 'Charge Sheet', isStatus: false }
+              ].map(({ key, label, isStatus }) => (
+                <div key={key} className="flex flex-col">
+                  <label className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isStatus ? formData.documentStatus[key as keyof typeof formData.documentStatus] : (formData as any)[key]}
+                      onChange={e => {
+                        if (isStatus) {
+                          handleInputChange(`documentStatus.${key}`, e.target.checked);
+                        } else {
+                          handleInputChange(key, e.target.checked);
+                        }
+                      }}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">{label}</span>
+                  </label>
+                  {(isStatus ? formData.documentStatus[key as keyof typeof formData.documentStatus] : (formData as any)[key]) && (
+                    <>
+                      <input
+                        type="file"
+                        className="mt-2"
+                        onChange={e => handleFileChange(key, e.target.files?.[0] || null)}
+                      />
+                    </>
+                  )}
+                </div>
               ))}
             </div>
           </div>

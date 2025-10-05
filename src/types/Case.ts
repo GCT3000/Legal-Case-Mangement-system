@@ -4,7 +4,7 @@ export interface Case {
   status: 'Filed' | 'Under Investigation' | 'Evidence Collection' | 'Court Proceedings' | 'Settlement' | 'Judgment Passed' | 'Appeal Filed' | 'Closed';
   dateCreated: string;
   lastUpdated: string;
-  priority: 'Low' | 'Medium' | 'High' | 'Urgent';
+  priority: 'Low' | 'Medium' | 'High';
   accidentDate: string;
   accidentLocation: string;
   policeStationFIR: string;
@@ -36,6 +36,6 @@ export interface CaseStats {
   underInvestigation: number;
   courtProceedings: number;
   settled: number;
-  urgent: number;
+
   totalClaimAmount: number;
 }
